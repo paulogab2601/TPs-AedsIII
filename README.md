@@ -4,11 +4,11 @@
 
 1. [Participantes](#1-participantes)  
 2. [Descrição do sistema](#2-descrição-do-sistema)  
-3. [Telas (capturas) e classes relacionadas](#3-telas-capturas-e-classes-relacionadas)  
-4. [Classes criadas (por pacote)](#4-classes-criadas-por-pacote)  
+3. [Telas e classes relacionadas](#3-telas-capturas-e-classes-relacionadas)  
+4. [Classes criadas](#4-classes-criadas)  
 5. [Operações especiais implementadas](#5-operações-especiais-implementadas)  
 6. [Vídeo de demonstração](#6-vídeo-de-demonstração)  
-7. [Checklist do enunciado (Sim/Não)](#7-checklist-do-enunciado-simnão)  
+7. [Checklists](#7-checklists)  
 8. [Como compilar e executar](#8-como-compilar-e-executar)
 
 ---
@@ -79,11 +79,11 @@ As imagens devem ficar na pasta `docs/` (caminhos relativos à raiz do repositó
 
 ---
 
-## 4. Classes criadas (por pacote)
+## 4. Classes criadas 
 
 O projeto está organizado em quatro áreas principais: infraestrutura `aed3`, entidades e arquivos em `modelo`, telas em `visao`, regras em `controle`, além da classe `Principal`.
 
-### 4.1. Pacote `aed3` — infraestrutura de persistência
+### 4.1. Package `aed3` — infraestrutura de persistência
 
 Adaptações do código-base da disciplina (repositório AEDs III / material do Prof. Kutova: CRUD genérico, Tabela Hash Extensível e Árvore B+).
 
@@ -97,7 +97,7 @@ Adaptações do código-base da disciplina (repositório AEDs III / material do 
 | `ArvoreBMais<T>` | Árvore B+ genérica com folhas encadeadas; suporta consulta por prefixo (“coringa”). |
 | `ParIDEndereco` | Par (ID, endereço em bytes) usado pelo índice direto do `Arquivo`. |
 
-### 4.2. Pacote `modelo` — entidades e pares de índice
+### 4.2. Package `modelo` — entidades e pares de índice
 
 | Classe | Papel |
 |--------|--------|
@@ -110,14 +110,14 @@ Adaptações do código-base da disciplina (repositório AEDs III / material do 
 | `ArquivoUsuario` | Estende `Arquivo<Usuario>`. Mantém `indiceEmail: HashExtensivel<ParEmailID>` para unicidade e busca por e-mail. |
 | `ArquivoCurso` | Estende `Arquivo<Curso>`. Índices: `indiceCodigo` (hash), `indiceUsuarioCurso: ArvoreBMais<ParIntInt>` (**1:N**), `indiceNomeCurso: ArvoreBMais<ParNomeIDCurso>` (nome). |
 
-### 4.3. Pacote `visao` — telas (console)
+### 4.3. Package `visao` — telas (console)
 
 | Classe | Papel |
 |--------|--------|
 | `VisaoUsuario` | Cadastro, login, recuperação de senha, alteração e exclusão de usuário. |
 | `VisaoCurso` | Listagem, criação, edição, menu do curso selecionado, breadcrumbs. |
 
-### 4.4. Pacote `controle` — regras de negócio
+### 4.4. Package `controle` — regras de negócio
 
 | Classe | Papel |
 |--------|--------|
