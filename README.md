@@ -1,150 +1,240 @@
-# TP1 — AEDs III — EntrePares 1.0
+# Relatório — TP1 (AEDs III) — **EntrePares 1.0**
 
-## Participantes
+## Sumário
 
-- *Paulo Gabriel de Oliveira Leite*
-- *Samuel Lucas Rodrigues Vieira*
-- *Carlos Eduardo de Melo Sabino*
-- *Rubens Dias Bicalho*
----
-
-## Descrição do sistema
-
-O **EntrePares 1.0** é um sistema de console em Java para gerenciamento de cursos de estudo em pares. Cada usuário se cadastra, faz login e pode criar, editar, listar e encerrar cursos de sua autoria. O sistema foi construído sobre a infraestrutura de persistência do pacote `aed3` (CRUD genérico com índices diretos, Tabela Hash Extensível e Árvore B+) e segue o padrão MVC, separando as camadas em `modelo`, `visao` e `controle` - A recomendação e obrigatoriedade do Prof. Marcos Kutova
-
-### Principais funcionalidades
-
-- **Cadastro de usuário** com nome, e-mail único, senha (armazenada como hash SHA-256), pergunta secreta e resposta secreta (também em hash).
-- **Login** por e-mail + senha, usando a Tabela Hash Extensível para localizar o usuário em O(1).
-- **Recuperação de senha** usa uma pergunta secreta: o sistema exibe a pergunta cadastrada e, se a resposta conferir, permite definir uma nova senha.
-- **Alteração dos dados do usuário**, incluindo troca de e-mail (com validação de unicidade) e troca de senha.
-- **Exclusão de usuário**, bloqueada quando o usuário ainda possui cursos ativos (estado 0 ou 1). Cursos já concluídos/cancelados são removidos em cascata.
-- **Criação de curso** com nome, data de início, descrição e um **código compartilhável** único gerado automaticamente (validado por hash extensível).
-- **Listagem dos cursos do usuário logado**, em ordem alfabética, obtida a partir da Árvore B+ que modela o relacionamento 1:N entre usuários e cursos (Disponibilizado pelo repositório de AEDS III).
-- **Atualização dos dados de um curso** (nome, data, descrição).
-- **Transições de estado do curso**:
-  - `0` → `1`: *Encerrar inscrições*.
-  - `0`/`1` → `2`: *Concluir curso*.
-  - *Cancelar curso*: como no TP1 ainda não tem as inscrições implementadas, exclui o curso de forma fisica.
-- **Breadcrumbs** exibidos em todas as telas, no formato `Início > Meus Cursos > Nome do Curso`.
+1. [Participantes](#1-participantes)  
+2. [Descrição do sistema](#2-descrição-do-sistema)  
+3. [Telas (capturas) e classes relacionadas](#3-telas-capturas-e-classes-relacionadas)  
+4. [Classes criadas (por pacote)](#4-classes-criadas-por-pacote)  
+5. [Operações especiais implementadas](#5-operações-especiais-implementadas)  
+6. [Vídeo de demonstração](#6-vídeo-de-demonstração)  
+7. [Checklist do enunciado (Sim/Não)](#7-checklist-do-enunciado-simnão)  
+8. [Como compilar e executar](#8-como-compilar-e-executar)
 
 ---
 
-## Classes criadas
+## 1. Participantes
 
-O projeto está organizado em quatro pastas principais:
-
-### Pasta `aed3` — infraestrutura de persistência
-Estes arquivos são adaptações diretas dos repositórios de código-base da disciplina (`CRUD2`, `TabelaHashExtensivel` e `ArvoreBMais` do repositório AEDsIII do Professor Kutova).
-
-| `Registro` | Interface dos objetos armazenáveis no Arquivo (id + serialização). |
-| `RegistroHashExtensivel` | Interface dos pares armazenáveis na Hash Extensível. |
-| `RegistroArvoreBMais` | Interface dos pares armazenáveis na Árvore B+. |
-| `Arquivo<T>` | CRUD genérico com cabeçalho, lista de registros deletados e índice direto por ID (Tabela Hash Extensível de `ParIDEndereco`). |
-| `HashExtensivel<T>` | Tabela Hash Extensível com diretório dinâmico e duplicação por profundidade. |
-| `ArvoreBMais<T>` | Árvore B+ genérica com folhas encadeadas, suportando consulta por prefixo (coringa). |
-| `ParIDEndereco` | Par (ID, endereço em bytes) usado internamente pelo índice direto do `Arquivo`. |
-
-### Pasta `modelo` — entidades e pares de índice
-
-| `Usuario` | Entidade do usuário (id, nome, email, hashSenha, perguntaSecreta, hashRespostaSecreta). |
-| `Curso` | Entidade do curso (id, nome, dataInicio, descricao, codigoCompartilhavel, estado, idUsuario). |
-| `ParEmailID` | Par para índice hash `email → idUsuario` (tamanho fixo de 124 bytes). |
-| `ParCodigoCursoID` | Par para índice hash `codigoCompartilhavel → idCurso`. |
-| `ParIntInt` | Par `(idUsuario, idCurso)` para a Árvore B+ do relacionamento 1:N. `compareTo` trata `-1` no segundo campo como coringa, permitindo `read(new ParIntInt(idUsuario, -1))` retornar todos os cursos do usuário. |
-| `ParNomeIDCurso` | Par `(nomeCurso, idCurso)` para a Árvore B+ que mantém os cursos ordenados alfabeticamente. |
-| `ArquivoUsuario` | Estende `Arquivo<Usuario>`. Mantém o índice `indiceEmail: HashExtensivel<ParEmailID>` para unicidade e busca por e-mail. |
-| `ArquivoCurso` | Estende `Arquivo<Curso>`. Mantém três índices: `indiceCodigo` (hash), `indiceUsuarioCurso: ArvoreBMais<ParIntInt>` (relacionamento 1:N) e `indiceNomeCurso: ArvoreBMais<ParNomeIDCurso>` (ordenação por nome). |
-
-### Pasta `visao` — telas
-
-| `VisaoUsuario` | Formulários e menus de cadastro, login, recuperação de senha, alteração e exclusão de usuário. |
-| `VisaoCurso` | Listagem de cursos, criação, edição, menu de ações do curso selecionado, exibição de breadcrumbs. |
-
-### Pasta `controle` — regras de negócio
-
-| `ControleUsuario` | Orquestra cadastro, login, recuperação de senha e exclusão de usuário (com as restrições de cursos ativos). |
-| `ControleCurso` | Orquestra criação, atualização e transições de estado dos cursos; aplica a listagem ordenada por nome. |
-
-### Classe raiz
-
-| `Principal` | Ponto de entrada; instancia `ArquivoUsuario`/`ArquivoCurso`, monta a sessão e fecha os recursos ao sair. |
-
-
-## Operações especiais
-
-1. **Consulta 1:N via Árvore B+ com chave parcial.** A busca `indiceUsuarioCurso.read(new ParIntInt(idUsuario, -1))` aproveita o `compareTo` de `ParIntInt`, que trata `num2 == -1` como coringa, para devolver *todos* os pares cujo primeiro campo é `idUsuario`. É assim que a tela "Meus Cursos" obtém a lista de cursos do usuário logado sem varredura linear do arquivo.
-
-2. **Listagem alfabética de cursos do usuário.** Para cada ID retornado pela Árvore B+ do relacionamento 1:N, o `ArquivoCurso` lê o curso correspondente e devolve a lista ordenada por nome, que a `VisaoCurso` apresenta com numeração sequencial (1, 2, 3...). O projeto ainda mantém, para extensões futuras, o índice `indiceNomeCurso: ArvoreBMais<ParNomeIDCurso>`, atualizado automaticamente em toda operação de CRUD de curso.
-
-3. **Geração de código compartilhável único.** Ao criar um curso, o sistema sorteia um código alfanumérico e verifica a colisão em O(1) usando `indiceCodigo: HashExtensivel<ParCodigoCursoID>`; em caso de colisão, sorteia novamente.
-
-4. **Unicidade de e-mail com Hash Extensível.** O `create` e o `update` de `ArquivoUsuario` consultam `indiceEmail` antes de gravar o registro, rejeitando duplicatas. E-mails são normalizados (trim + lowercase) antes de hashear.
-
-5. **Hash SHA-256 de senha e resposta secreta.** Nem a senha nem a resposta da pergunta secreta são armazenadas em texto claro. A recuperação de senha compara os hashes.
-
-6. **Exclusão em cascata controlada.** `ArquivoCurso.usuarioPossuiCursoAtivo(idUsuario)` bloqueia a exclusão do usuário quando existe curso em estado 0 ou 1. Caso contrário, `excluirTodosCursosDoUsuario(idUsuario)` remove todos os cursos (concluídos/cancelados) antes de apagar o usuário, mantendo os três índices de curso consistentes.
-
-7. **Transições de estado do curso.** O método `alterarEstado` do `ArquivoCurso` centraliza as mudanças `0 → 1` (encerrar inscrições) e `0/1 → 2` (concluir curso), garantindo que apenas transições válidas sejam efetivadas.
-
-8. **Sincronização automática de índices secundários.** Os sobrescritos `create`, `update` e `delete` de `ArquivoUsuario` e `ArquivoCurso` propagam as mudanças para todos os índices (hash e B+) envolvidos, de modo que o chamador não precisa se preocupar com a consistência.
+| Nome |
+|------|
+| Paulo Gabriel de Oliveira Leite |
+| Samuel Lucas Rodrigues Vieira |
+| Carlos Eduardo de Melo Sabino |
+| Rubens Dias Bicalho |
 
 ---
 
-## Capturas de tela
+## 2. Descrição do sistema
 
-1. **Tela inicial (Login / Novo usuário / Sair).**
+O **EntrePares 1.0** é um sistema em **Java (console)** para **gerenciamento de cursos de estudo em pares**. Cada usuário pode se cadastrar, autenticar-se e **criar, listar, alterar e remover** cursos de sua autoria, com regras de negócio sobre estados do curso e consistência dos dados.
+
+A persistência apoia-se na infraestrutura do pacote `aed3` (**CRUD genérico** com **índice direto** por ID via **Tabela Hash Extensível**, além de **Árvore B+** onde aplicável). A aplicação segue o padrão **MVC**, com camadas em `modelo`, `visao` e `controle`, conforme recomendação do **Prof. Marcos Kutova**.
+
+### 2.1. Principais funcionalidades
+
+- **Cadastro de usuário:** nome, e-mail único, senha (armazenada como hash **SHA-256**), pergunta secreta e resposta secreta (resposta também em hash).
+- **Login** por e-mail e senha, usando **Tabela Hash Extensível** para localizar o usuário de forma eficiente.
+- **Recuperação de senha:** exibe a pergunta secreta cadastrada; se a resposta conferir, permite definir nova senha.
+- **Alteração dos dados do usuário**, incluindo troca de e-mail com validação de unicidade e troca de senha.
+- **Exclusão de usuário:** bloqueada quando ainda existem cursos **ativos** (estado `0` ou `1`); cursos já concluídos/cancelados podem ser removidos em **cascata** antes da exclusão.
+- **Criação de curso:** nome, data de início, descrição e **código compartilhável** único (gerado automaticamente e validado via hash extensível).
+- **Listagem dos cursos do usuário logado**, em **ordem alfabética** (com critérios de desempate), obtida a partir dos identificadores retornados pela **Árvore B+** que modela o relacionamento **1:N** entre usuários e cursos (código-base da disciplina).
+- **Atualização dos dados do curso** (nome, data, descrição).
+- **Transições de estado do curso:**
+  - `0` → `1`: encerrar inscrições;
+  - `0` ou `1` → `2`: concluir curso;
+  - **Cancelar curso:** como inscrições ainda não estão no escopo do TP1, o cancelamento **remove o curso fisicamente** do armazenamento.
+- **Breadcrumbs** em todas as telas, no formato `Início > Meus Cursos > Nome do Curso`.
+
+---
+
+## 3. Telas (capturas) e classes relacionadas
+
+As imagens devem ficar na pasta `docs/` (caminhos relativos à raiz do repositório). Abaixo, cada tela está associada às **classes de visão/controle** que concentram a interação exibida.
+
+| # | Descrição da tela | Arquivo da captura | Classes mais diretamente envolvidas |
+|---|-------------------|--------------------|-------------------------------------|
+| 1 | Tela inicial (login / novo usuário / sair) | `docs/tela-inicial.png` | `Principal`, `VisaoUsuario` |
+| 2 | Fluxo de login | `docs/login-usuario.png` | `VisaoUsuario`, `ControleUsuario`, `ArquivoUsuario` |
+| 3 | Listagem **Meus Cursos** + criação de curso (código gerado) | `docs/cursos.png` | `VisaoCurso`, `ControleCurso`, `ArquivoCurso` |
+| 4 | Curso selecionado (ações: encerrar inscrições / concluir / cancelar) | `docs/informacoes-cursos.png` | `VisaoCurso`, `ControleCurso`, `ArquivoCurso` |
+| 5 | Cancelamento de curso | `docs/cancelamento-curso.png` | `VisaoCurso`, `ControleCurso`, `ArquivoCurso` |
+
+### Pré-visualização (mesmas imagens do relatório anterior)
+
+1. **Tela inicial (Login / Novo usuário / Sair).**  
    ![Tela inicial](docs/tela-inicial.png)
 
-2. **Login do usuário.**
-   ![Novo usuário](docs/login-usuario.png)
+2. **Login do usuário.**  
+   ![Login do usuário](docs/login-usuario.png)
 
-4. **Listagem de "Meus Cursos" ordenada por nome e criação de curso com código compartilhável gerado.**
+3. **Listagem de "Meus Cursos" ordenada por nome e criação de curso com código compartilhável gerado.**  
    ![Meus cursos](docs/cursos.png)
 
-6. **Tela de um curso selecionado com opções de encerrar inscrições / concluir / cancelar.**
+4. **Tela de um curso selecionado com opções de encerrar inscrições / concluir / cancelar.**  
    ![Curso selecionado](docs/informacoes-cursos.png)
 
-7. **Cancelamento de um curso**
-   ![Meus dados](docs/cancelamento-curso.png)
+5. **Cancelamento de um curso.**  
+   ![Cancelamento de curso](docs/cancelamento-curso.png)
 
 ---
 
-## Vídeo de demonstração
+## 4. Classes criadas (por pacote)
 
-- Link: **A PREENCHER**
+O projeto está organizado em quatro áreas principais: infraestrutura `aed3`, entidades e arquivos em `modelo`, telas em `visao`, regras em `controle`, além da classe `Principal`.
 
-## Checklist de entrega
+### 4.1. Pacote `aed3` — infraestrutura de persistência
 
-**1. Há um CRUD de usuários (que estende a classe `ArquivoIndexado`, acrescentando Tabelas Hash Extensíveis e Árvores B+ como índices diretos e indiretos conforme necessidade) que funciona corretamente?**
-**Sim.** A classe `modelo.ArquivoUsuario` estende `aed3.Arquivo<Usuario>` e acrescenta o índice indireto `indiceEmail: HashExtensivel<ParEmailID>`, usado para garantir unicidade de e-mail e para o login.
+Adaptações do código-base da disciplina (repositório AEDs III / material do Prof. Kutova: CRUD genérico, Tabela Hash Extensível e Árvore B+).
 
-**2. Há um CRUD de cursos (que estende a classe `ArquivoIndexado`, acrescentando Tabelas Hash Extensíveis e Árvores B+ como índices diretos e indiretos conforme necessidade) que funciona corretamente?**
-**Sim.** A classe `modelo.ArquivoCurso` estende `aed3.Arquivo<Curso>` e acrescenta três índices secundários: `indiceCodigo` (Hash Extensível para o código compartilhável), `indiceUsuarioCurso` (Árvore B+ de `ParIntInt` para o relacionamento 1:N) e `indiceNomeCurso` (Árvore B+ de `ParNomeIDCurso` para a ordem alfabética).
+| Classe | Papel |
+|--------|--------|
+| `Registro` | Interface dos objetos armazenáveis no arquivo (ID + serialização). |
+| `RegistroHashExtensivel` | Interface dos pares armazenáveis na hash extensível. |
+| `RegistroArvoreBMais` | Interface dos pares armazenáveis na Árvore B+. |
+| `Arquivo<T>` | CRUD genérico com cabeçalho, lista de registros excluídos e **índice direto por ID** (hash extensível de `ParIDEndereco`). |
+| `HashExtensivel<T>` | Tabela Hash Extensível com diretório dinâmico e duplicação por profundidade. |
+| `ArvoreBMais<T>` | Árvore B+ genérica com folhas encadeadas; suporta consulta por prefixo (“coringa”). |
+| `ParIDEndereco` | Par (ID, endereço em bytes) usado pelo índice direto do `Arquivo`. |
 
-**3. Os cursos estão vinculados aos usuários usando o idUsuario como chave estrangeira?**
-**Sim.** A entidade `Curso` possui o campo `idUsuario`, preenchido automaticamente a partir da sessão do usuário logado no momento da criação. O `ControleCurso` usa esse campo em todas as consultas para restringir as operações aos cursos do próprio usuário.
+### 4.2. Pacote `modelo` — entidades e pares de índice
 
-**4. Há uma árvore B+ que registre o relacionamento 1:N entre usuários e cursos?**
-**Sim.** O índice `indiceUsuarioCurso: ArvoreBMais<ParIntInt>` mantém um par `(idUsuario, idCurso)` para cada curso. A consulta `read(new ParIntInt(idUsuario, -1))` retorna todos os cursos de um usuário, aproveitando o `compareTo` de `ParIntInt` que trata `-1` como coringa.
+| Classe | Papel |
+|--------|--------|
+| `Usuario` | Entidade do usuário (id, nome, email, hash da senha, pergunta secreta, hash da resposta). |
+| `Curso` | Entidade do curso (id, nome, data de início, descrição, código compartilhável, estado, **idUsuario**). |
+| `ParEmailID` | Par para índice hash `email → idUsuario` (tamanho fixo de 124 bytes). |
+| `ParCodigoCursoID` | Par para índice hash `codigoCompartilhavel → idCurso`. |
+| `ParIntInt` | Par `(idUsuario, idCurso)` na Árvore B+ do **1:N**. O `compareTo` trata `-1` no segundo campo como coringa, permitindo `read(new ParIntInt(idUsuario, -1))` retornar todos os cursos do usuário. |
+| `ParNomeIDCurso` | Par `(nomeCurso, idCurso)` na Árvore B+ que mantém ordenação alfabética (atualizada no CRUD; útil para extensões). |
+| `ArquivoUsuario` | Estende `Arquivo<Usuario>`. Mantém `indiceEmail: HashExtensivel<ParEmailID>` para unicidade e busca por e-mail. |
+| `ArquivoCurso` | Estende `Arquivo<Curso>`. Índices: `indiceCodigo` (hash), `indiceUsuarioCurso: ArvoreBMais<ParIntInt>` (**1:N**), `indiceNomeCurso: ArvoreBMais<ParNomeIDCurso>` (nome). |
 
-**5. O trabalho compila corretamente?**
-**Sim.** O projeto compila com `javac` a partir da pasta `src/`, sem dependências externas além do JDK.
+### 4.3. Pacote `visao` — telas (console)
 
-**6. O trabalho está completo e funcionando sem erros de execução?**
-**Sim.** Os fluxos de cadastro, login, recuperação de senha, CRUD de usuário, CRUD de curso, transições de estado e listagem ordenada foram testados manualmente (Testado por: Paulo Gabriel de Oliveira Leite - 860144) e funcionam conforme o enunciado do TP1.
+| Classe | Papel |
+|--------|--------|
+| `VisaoUsuario` | Cadastro, login, recuperação de senha, alteração e exclusão de usuário. |
+| `VisaoCurso` | Listagem, criação, edição, menu do curso selecionado, breadcrumbs. |
 
-**7. O trabalho é original e não a cópia de um trabalho de outro grupo?**
-**Sim.** O código foi escrito pelos integrantes do grupo. As únicas partes reaproveitadas são as classes do pacote `aed3` (CRUD genérico, Tabela Hash Extensível e Árvore B+), que são código-base oficial da disciplina e de uso obrigatório segundo o enunciado. P.S: foi utilizado I.A (Claude) **SOMENTE** para melhorar a compreensão e corrigir sintaticamente os textos das Strings, visando manter a normal culta da lingua portuguesa.
+### 4.4. Pacote `controle` — regras de negócio
+
+| Classe | Papel |
+|--------|--------|
+| `ControleUsuario` | Orquestra cadastro, login, recuperação de senha e exclusão (restrições de cursos ativos). |
+| `ControleCurso` | Orquestra CRUD e transições de estado; aplica listagem ordenada por nome. |
+
+### 4.5. Classe raiz
+
+| Classe | Papel |
+|--------|--------|
+| `Principal` | Ponto de entrada; instancia `ArquivoUsuario` / `ArquivoCurso`, sessão e encerramento dos recursos. |
 
 ---
 
-## Como executar
+## 5. Operações especiais implementadas
 
-Na raiz do repositório:
+1. **Consulta 1:N via Árvore B+ com chave parcial:** `indiceUsuarioCurso.read(new ParIntInt(idUsuario, -1))` usa o `compareTo` de `ParIntInt` (coringa no segundo campo) para obter todos os pares `(idUsuario, idCurso)` sem varredura linear do arquivo principal.
+2. **Listagem alfabética dos cursos do usuário:** a partir dos IDs do índice 1:N, os registros são lidos e ordenados na camada de arquivo/listagem (com desempate por data e ID), e a `VisaoCurso` exibe numeração sequencial. O índice `indiceNomeCurso` permanece sincronizado nas operações de CRUD para evoluções futuras.
+3. **Código compartilhável único:** geração aleatória com verificação de colisão em **O(1)** amorteizado via `indiceCodigo: HashExtensivel<ParCodigoCursoID>`.
+4. **Unicidade de e-mail:** `create` e `update` em `ArquivoUsuario` consultam `indiceEmail` antes de gravar; e-mails são normalizados (trim + minúsculas).
+5. **Hash SHA-256** de senha e de resposta secreta; recuperação compara hashes, sem armazenar texto claro.
+6. **Exclusão em cascata controlada:** `usuarioPossuiCursoAtivo` impede exclusão do usuário com curso em estado `0` ou `1`; caso contrário, `excluirTodosCursosDoUsuario` remove cursos remanescentes antes de apagar o usuário, mantendo índices consistentes.
+7. **Transições de estado:** `alterarEstado` em `ArquivoCurso` centraliza mudanças válidas de estado do curso.
+8. **Sincronização de índices:** sobrescritas de `create`, `update` e `delete` em `ArquivoUsuario` e `ArquivoCurso` propagam alterações a **todos** os índices (hash e B+) envolvidos.
 
+---
+
+## 6. Vídeo de demonstração
+
+- **Link:** *A preencher pelo grupo.*
+
+---
+
+## 7. Checklists
+
+---
+
+### 1)
+
+**Há um CRUD de usuários (que estende a classe ArquivoIndexado, acrescentando Tabelas Hash Extensíveis e Árvores B+ como índices diretos e indiretos conforme necessidade) que funciona corretamente?**
+
+- [x] **Resposta:** **Sim**
+- **Justificativa:** A classe `modelo.ArquivoUsuario` estende `aed3.Arquivo<Usuario>` (CRUD indexado: o `Arquivo` já mantém **índice direto por ID** com **Hash Extensível** internamente) e acrescenta o índice indireto `indiceEmail: HashExtensivel<ParEmailID>` para unicidade de e-mail e login. Os fluxos de cadastro, login, alteração e exclusão foram exercitados pelo grupo.
+
+---
+
+### 2)
+
+**Há um CRUD de cursos (que estende a classe ArquivoIndexado, acrescentando Tabelas Hash Extensíveis e Árvores B+ como índices diretos e indiretos conforme necessidade) que funciona corretamente?**
+
+- [x] **Resposta:** **Sim**
+- **Justificativa:** A classe `modelo.ArquivoCurso` estende `aed3.Arquivo<Curso>` e acrescenta `indiceCodigo` (hash), `indiceUsuarioCurso` (Árvore B+ para **1:N**) e `indiceNomeCurso` (Árvore B+ por nome). Create/read/update/delete e transições de estado foram testados manualmente.
+
+---
+
+### 3)
+
+**Os cursos estão vinculados aos usuários usando o idUsuario como chave estrangeira?**
+
+- [x] **Resposta:** **Sim**
+- **Justificativa:** A entidade `Curso` possui o campo `idUsuario`, preenchido na criação a partir da sessão do usuário logado. O `ControleCurso` restringe operações aos cursos desse `idUsuario`.
+
+---
+
+### 4)
+
+**Há uma árvore B+ que registre o relacionamento 1:N entre usuários e cursos?**
+
+- [x] **Resposta:** **Sim**
+- **Justificativa:** O índice `indiceUsuarioCurso: ArvoreBMais<ParIntInt>` armazena `(idUsuario, idCurso)` por curso. A leitura `read(new ParIntInt(idUsuario, -1))` retorna todos os cursos do usuário graças ao tratamento de coringa em `ParIntInt`.
+
+---
+
+### 5)
+
+**Há um CRUD de usuários (que estende a classe ArquivoIndexado, acrescentando Tabelas Hash Extensíveis e Árvores B+ como índices diretos e indiretos conforme necessidade)?**
+
+- [x] **Resposta:** **Sim**
+- **Justificativa:** Existe `ArquivoUsuario extends Arquivo<Usuario>` com índice secundário em hash extensível (`ParEmailID`). No código deste projeto, a classe base indexada chama-se **`aed3.Arquivo`**, em papel equivalente ao **ArquivoIndexado** citado no material/enunciado (CRUD com índice direto + extensão com índices adicionais).
+
+---
+
+### 6)
+
+**O trabalho compila corretamente?**
+
+- [x] **Resposta:** **Sim**
+- **Justificativa:** Compilação com `javac` a partir da pasta `src/`, sem dependências externas além do JDK (ver seção [Como compilar e executar](#8-como-compilar-e-executar)).
+
+---
+
+### 7)
+
+**O trabalho está completo e funcionando sem erros de execução?**
+
+- [x] **Resposta:** **Sim**
+- **Justificativa:** Fluxos de cadastro, login, recuperação de senha, CRUD de usuário, CRUD de curso, transições de estado e listagem ordenada foram testados manualmente (**testado por:** Paulo Gabriel de Oliveira Leite — matrícula **860144**), alinhados ao enunciado do TP1.
+
+---
+
+### 8)
+
+**O trabalho é original e não a cópia de um trabalho de outro grupo?**
+
+- [x] **Resposta:** **Sim**
+- **Justificativa:** Implementação feita pelos integrantes. As únicas partes reaproveitadas são as classes do pacote `aed3` (código-base oficial da disciplina). **Uso de IA (Claude):** somente para **melhorar a compreensão** e **ajustar sintaticamente textos de strings**, preservando norma culta da língua portuguesa — **não** para substituir o desenho ou a lógica principal do trabalho.
+
+---
+
+## 8. Como compilar e executar
+
+Na raiz do repositório, execute (exemplo em terminal):
+
+```bash
 cd src
 javac Principal.java
 java Principal
+```
 
 Os arquivos de dados são criados automaticamente nas pastas `dados/usuarios/` e `dados/cursos/` na primeira execução.
