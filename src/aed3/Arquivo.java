@@ -13,15 +13,15 @@ public class Arquivo<T extends Registro> {
     HashExtensivel<ParIDEndereco> indiceDireto;
 
     public Arquivo(String na, Constructor<T> c) throws Exception {
-        File d = new File(".\\dados");
+        File d = new File("." + File.separator + "dados");
         if(!d.exists())
             d.mkdir();
 
-        d = new File(".\\dados\\"+na);
+        d = new File("." + File.separator + "dados" + File.separator + na);
         if(!d.exists())
             d.mkdir();
 
-        this.nomeArquivo = ".\\dados\\"+na+"\\"+na+".db";
+        this.nomeArquivo = "." + File.separator + "dados" + File.separator + na + File.separator + na + ".db";
         this.construtor = c;
         arquivo = new RandomAccessFile(this.nomeArquivo, "rw");
         if(arquivo.length()<TAM_CABECALHO) {
@@ -33,8 +33,8 @@ public class Arquivo<T extends Registro> {
         indiceDireto = new HashExtensivel<>(
             ParIDEndereco.class.getConstructor(), 
             4, 
-            ".\\dados\\"+na+"\\"+na+".d.db", // diretório 
-            ".\\dados\\"+na+"\\"+na+".c.db"  // cestos
+            "." + File.separator + "dados" + File.separator + na + File.separator + na + ".d.db", // diretório 
+            "." + File.separator + "dados" + File.separator + na + File.separator + na + ".c.db"  // cestos
         );
     }
 

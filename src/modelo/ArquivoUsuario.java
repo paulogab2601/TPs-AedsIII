@@ -1,5 +1,6 @@
 package modelo;
 
+import java.io.File;
 import aed3.Arquivo;
 import aed3.HashExtensivel;
 
@@ -12,8 +13,8 @@ public class ArquivoUsuario extends Arquivo<Usuario> {
         indiceEmail = new HashExtensivel<>(
                 ParEmailID.class.getConstructor(),
                 4,
-                ".\\dados\\usuarios\\usuarios_email.d.db",
-                ".\\dados\\usuarios\\usuarios_email.c.db"
+                "." + File.separator + "dados" + File.separator + "usuarios" + File.separator + "usuarios_email.d.db",
+                "." + File.separator + "dados" + File.separator + "usuarios" + File.separator + "usuarios_email.c.db"
         );
     }
 

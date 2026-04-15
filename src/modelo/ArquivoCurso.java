@@ -1,5 +1,6 @@
 package modelo;
 
+import java.io.File;
 import aed3.Arquivo;
 import aed3.ArvoreBMais;
 import aed3.HashExtensivel;
@@ -25,20 +26,20 @@ public class ArquivoCurso extends Arquivo<Curso> {
         indiceCodigo = new HashExtensivel<>(
                 ParCodigoCursoID.class.getConstructor(),
                 4,
-                ".\\dados\\cursos\\cursos_codigo.d.db",
-                ".\\dados\\cursos\\cursos_codigo.c.db"
+                "." + File.separator + "dados" + File.separator + "cursos" + File.separator + "cursos_codigo.d.db",
+                "." + File.separator + "dados" + File.separator + "cursos" + File.separator + "cursos_codigo.c.db"
         );
 
         indiceUsuarioCurso = new ArvoreBMais<>(
                 ParIntInt.class.getConstructor(),
                 5,
-                ".\\dados\\cursos\\cursos_usuario_curso.idx.db"
+                "." + File.separator + "dados" + File.separator + "cursos" + File.separator + "cursos_usuario_curso.idx.db"
         );
 
         indiceNomeCurso = new ArvoreBMais<>(
                 ParNomeIDCurso.class.getConstructor(),
                 5,
-                ".\\dados\\cursos\\cursos_nome.idx.db"
+                "." + File.separator + "dados" + File.separator + "cursos" + File.separator + "cursos_nome.idx.db"
         );
     }
 
