@@ -147,8 +147,8 @@ Adaptações do código-base da disciplina (repositório AEDs III / material do 
 
 ## 6. Vídeo de demonstração
 
-- **Link:** *A preencher pelo grupo.*
-
+- [Assista aqui](https://youtu.be/V8A7folxOlo)
+  
 ---
 
 ## 7. Checklists
